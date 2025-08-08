@@ -65,3 +65,11 @@ Fetches relevant data from internal knowledge base before generating answers.
 
 ---
 
+## 🛠️ Tech Stack
+
+| Part       | Tool                     |
+|------------|--------------------------|
+| Frontend   | HTML + CSS + JavaScript *(or React)* |
+| Backend    | Node.js or Python (Flask) |
+| AI API     | OpenAI GPT / Gemini / Cohere |
+| Optional DB| Small in-memory store (for RAG) |
