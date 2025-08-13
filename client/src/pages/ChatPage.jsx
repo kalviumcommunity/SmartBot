@@ -25,7 +25,6 @@ const ChatPage = ({ messages, onSendMessage, tuningStyle, setTuningStyle }) => {
       <div className="chat-header">
         <span>SmartBot</span>
         <div className="tuning-controls">
-          {/* --- UPDATED BUTTONS --- */}
           <button
             className={tuningStyle === 'precise' ? 'active' : ''}
             onClick={() => setTuningStyle('precise')}
@@ -38,12 +37,18 @@ const ChatPage = ({ messages, onSendMessage, tuningStyle, setTuningStyle }) => {
           >
             Creative (Temp)
           </button>
-          {/* --- NEW TOP-K BUTTON --- */}
           <button
             className={tuningStyle === 'topk' ? 'active' : ''}
             onClick={() => setTuningStyle('topk')}
           >
             Top-K
+          </button>
+          {/* --- NEW TOP-P BUTTON --- */}
+          <button
+            className={tuningStyle === 'topp' ? 'active' : ''}
+            onClick={() => setTuningStyle('topp')}
+          >
+            Top-P
           </button>
         </div>
       </div>
