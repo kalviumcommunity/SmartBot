@@ -5,22 +5,19 @@ import Sidebar from './components/Sidebar';
 import { sendMessageToBot } from './services/api';
 
 function App() {
-  // State for all chat messages, keyed by chat ID
   const [allMessages, setAllMessages] = useState({
     'chat-1': [{ sender: 'bot', text: 'Hello! How can I help you today?' }]
   });
-
-  // State for the chat history shown in the sidebar
   const [chatHistory, setChatHistory] = useState([
     { id: 'chat-1', title: 'New Chat' }
   ]);
-
-  // State to track the currently active chat
   const [currentChatId, setCurrentChatId] = useState('chat-1');
+  
+  // State for tuning style
+  const [tuningStyle, setTuningStyle] = useState('precise'); // 'precise' or 'creative'
 
-  // Function to start a new chat
   const handleNewChat = () => {
-    const newChatId = `chat-${Date.now()}`; // Unique ID for the new chat
+    const newChatId = `chat-${Date.now()}`;
     setChatHistory(prev => [...prev, { id: newChatId, title: 'New Chat' }]);
     setAllMessages(prev => ({
       ...prev,
@@ -29,30 +26,24 @@ function App() {
     setCurrentChatId(newChatId);
   };
 
-  // Function to switch to an existing chat
   const handleSelectChat = (chatId) => {
     setCurrentChatId(chatId);
   };
 
-  // Function to handle sending a message in the current chat
   const handleSendMessage = async (userInput) => {
     const userMessage = { sender: 'user', text: userInput };
-
-    // Update the messages for the current chat
     const updatedMessages = [...allMessages[currentChatId], userMessage];
     setAllMessages(prev => ({ ...prev, [currentChatId]: updatedMessages }));
 
-    // If this is the first user message, update the chat title
     if (allMessages[currentChatId].length === 1) {
       setChatHistory(prev => prev.map(chat =>
         chat.id === currentChatId ? { ...chat, title: userInput } : chat
       ));
     }
 
-    // Show typing indicator and get bot response
-    // (We'll pass a setter function to ChatPage for this)
     try {
-      const botResponse = await sendMessageToBot(userInput);
+      // Pass tuningStyle to the API call
+      const botResponse = await sendMessageToBot(userInput, tuningStyle);
       setAllMessages(prev => ({
         ...prev,
         [currentChatId]: [...updatedMessages, botResponse]
@@ -66,7 +57,6 @@ function App() {
     }
   };
 
-  // Get the messages for the currently selected chat
   const currentChatMessages = allMessages[currentChatId] || [];
 
   return (
@@ -80,6 +70,9 @@ function App() {
       <ChatPage
         messages={currentChatMessages}
         onSendMessage={handleSendMessage}
+        // Pass down the style and its setter function
+        tuningStyle={tuningStyle}
+        setTuningStyle={setTuningStyle}
       />
     </div>
   );
