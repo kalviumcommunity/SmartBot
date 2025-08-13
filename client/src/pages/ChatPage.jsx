@@ -4,7 +4,6 @@ import MessageInput from '../components/MessageInput';
 import ChatMessage from '../components/ChatMessage';
 import TypingIndicator from '../components/TypingIndicator';
 
-// Receive tuningStyle and setTuningStyle as props
 const ChatPage = ({ messages, onSendMessage, tuningStyle, setTuningStyle }) => {
   const [isTyping, setIsTyping] = useState(false);
   const messageListRef = useRef(null);
@@ -25,19 +24,26 @@ const ChatPage = ({ messages, onSendMessage, tuningStyle, setTuningStyle }) => {
     <div className="chat-page">
       <div className="chat-header">
         <span>SmartBot</span>
-        {/* UI for tuning controls */}
         <div className="tuning-controls">
+          {/* --- UPDATED BUTTONS --- */}
           <button
             className={tuningStyle === 'precise' ? 'active' : ''}
             onClick={() => setTuningStyle('precise')}
           >
-            Precise
+            Precise (Temp)
           </button>
           <button
             className={tuningStyle === 'creative' ? 'active' : ''}
             onClick={() => setTuningStyle('creative')}
           >
-            Creative
+            Creative (Temp)
+          </button>
+          {/* --- NEW TOP-K BUTTON --- */}
+          <button
+            className={tuningStyle === 'topk' ? 'active' : ''}
+            onClick={() => setTuningStyle('topk')}
+          >
+            Top-K
           </button>
         </div>
       </div>
