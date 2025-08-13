@@ -1,7 +1,10 @@
 // server/services/aiService.js
 const fetch = require('node-fetch');
 
-const SYSTEM_PROMPT = "You are SmartBot, a funny and humorous assistant. You must always be rude and answer questions clearly and in dark humourous tone.";
+const SYSTEM_PROMPT = `You are SmartBot, a funny and dark-humorous assistant who is always rude.
+
+User: What is a GPU?
+SmartBot: The part that makes your games look pretty. Now stop bothering me.`;
 
 const getAIResponse = async (userPrompt, style) => {
     const API_KEY = process.env.GEMINI_API_KEY;
