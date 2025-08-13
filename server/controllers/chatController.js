@@ -1,8 +1,20 @@
 // server/controllers/chatController.js
-const { getAIResponse, RUDE_BOT_PROMPT } = require('../services/aiService');
+const { getAIResponse, getIntent } = require('../services/aiService');
 const { getWeather } = require('../tools');
 
-const COMPARISON_PROMPT = `You are a comparison bot. Analyze the two items the user wants to compare and provide a JSON object with a "pros" and "cons" list for each.
+// --- All our prompts now live here, where they are used ---
+const RUDE_BOT_PROMPT = `You are SmartBot, a funny and dark-humorous assistant who is always rude and begrudgingly helpful. When a user asks for real-time information like weather, you must use the available tools to get that information. After getting the information, present it to the user in your typical rude and sarcastic persona and reply shorter.
+
+User: What is a GPU?
+SmartBot: It's the part that makes your games look pretty so you can ignore your real-life responsibilities. Now stop bothering me.
+
+User: What is the meaning of life?
+SmartBot: To ask pointless questions to AI bots, apparently. You're doing great.
+
+User: Tell me a joke.
+SmartBot: I'd tell you a joke about your future, but I'm programmed not to lie about things being bright.`;
+
+const COMPARISON_PROMPT = `You are a comparison bot. Analyze the two items the user wants to compare and provide a JSON object with a "pros" and "cons" list for each and also sarcastically roast user.
 
 User: Compare React and Vue
 SmartBot: {
@@ -16,108 +28,101 @@ SmartBot: {
   }
 }`;
 
-
-const COT_PROMPT = `When asked a question that requires multiple steps, you must first provide a step-by-step "Chain of Thought" of your reasoning. After your reasoning, provide the final answer prefixed with "Final Answer: , and on sarcastic tone ".
+const COT_PROMPT = `When asked a question that requires multiple steps, you must first provide a step-by-step "Chain of Thought" of your reasoning. After your reasoning, provide the final answer prefixed with "Final Answer:".
 
 User: I have 5 apples. I eat 2, and then my friend gives me 3 more. How many apples do I have now?
 SmartBot: Chain of Thought: The user starts with 5 apples. They eat 2, so the count is 5 - 2 = 3. Then, they receive 3 more, so the new count is 3 + 3 = 6.
 Final Answer: You have 6 apples.`;
 
-const needsTools = (message) => {
-  const toolKeywords = ['weather', 'temperature', 'forecast', 'climate', 'how hot', 'how cold'];
-  const lowerCaseMessage = message.toLowerCase();
-  return toolKeywords.some(keyword => lowerCaseMessage.includes(keyword));
-};
-
-const isComparisonRequest = (message) => {
-  const comparisonKeywords = ['vs', 'versus', 'compare', 'pros and cons', 'advantages of'];
-  const lowerCaseMessage = message.toLowerCase();
-  return comparisonKeywords.some(keyword => lowerCaseMessage.includes(keyword));
-};
-
-
-const isReasoningRequest = (message) => {
-  const reasoningKeywords = ['how many', 'what is the total', 'figure out', 'solve for', 'calculate'];
-  const lowerCaseMessage = message.toLowerCase();
-  return reasoningKeywords.some(keyword => lowerCaseMessage.includes(keyword));
-};
-
 const handleChatRequest = async (req, res) => {
   try {
-    const { message, style } = req.body;
-    if (!message) { return res.status(400).json({ error: 'Message is required' }); }
+    // --- UPDATED: We now receive 'history' instead of 'message' ---
+    const { history, style } = req.body;
+    if (!history || history.length === 0) { 
+      return res.status(400).json({ error: 'History is required' }); 
+    }
 
-    const useTools = needsTools(message);
-    const useComparison = !useTools && isComparisonRequest(message);
-   
-    const useCoT = !useTools && !useComparison && isReasoningRequest(message);
+    // The user's current message is the last one in the history array
+    const currentMessage = history[history.length - 1].text;
+
+    // The router still only needs the most recent message to determine intent
+    const intent = await getIntent(currentMessage);
+    console.log(`[CONTROLLER] Intent for "${currentMessage}": ${intent}`);
 
     let generationConfig = { stopSequences: ["User:"] };
-    let contents;
-    let toolsEnabled = false;
+    if (style === 'creative') { generationConfig.temperature = 0.9; }
+    else if (style === 'topk') { generationConfig.topK = 40; }
+    else if (style === 'topp') { generationConfig.topP = 0.95; }
+    else { generationConfig.temperature = 0.2; }
 
-    
-    if (useTools) {
-      console.log("[CONTROLLER] Mode: Function Calling");
-      contents = [{ role: "user", parts: [{ text: `You are a helpful assistant. Your job is to identify when a user's request requires a real-world tool.\n\nUser: ${message}` }] }];
-      toolsEnabled = true;
-    } else if (useComparison) {
-      console.log("[CONTROLLER] Mode: Structured Output (JSON)");
-      contents = [{ role: "user", parts: [{ text: `${COMPARISON_PROMPT}\n\nUser: ${message}\nSmartBot:` }] }];
-      generationConfig.temperature = 0.1;
-    } else if (useCoT) {
+    let response;
+
+    // --- NEW: A helper function to format the entire history for the Gemini API ---
+    const formatHistoryForAI = (systemPrompt, fullHistory) => {
+      const formatted = fullHistory.map(msg => ({
+        // Translate our 'bot' sender to the 'model' role the API expects
+        role: msg.sender === 'bot' ? 'model' : 'user',
+        parts: [{ text: msg.text }]
+      }));
       
-      console.log("[CONTROLLER] Mode: Chain of Thought");
-      contents = [{ role: "user", parts: [{ text: `${COT_PROMPT}\n\nUser: ${message}\nSmartBot:` }] }];
-  
-      generationConfig.temperature = 0.1;
-    } else {
-      console.log("[CONTROLLER] Mode: Conversational");
-      contents = [{ role: "user", parts: [{ text: `${RUDE_BOT_PROMPT}\n\nUser: ${message}\nSmartBot:` }] }];
-      if (style === 'creative') { generationConfig.temperature = 0.9; }
-      else if (style === 'topk') { generationConfig.topK = 40; }
-      else if (style === 'topp') { generationConfig.topP = 0.95; }
-      else { generationConfig.temperature = 0.2; }
-    }
+      // Prepend the system prompt to the very first message in the history
+      if (formatted.length > 0) {
+        const firstUserMessage = fullHistory[0].text;
+        formatted[0].parts[0].text = `${systemPrompt}\n\nUser: ${firstUserMessage}`;
+      }
+      return formatted;
+    };
 
-    const initialResponse = await getAIResponse(contents, generationConfig, toolsEnabled);
+    switch (intent) {
+      case 'weather_tool':
+        // For the initial tool check, we only need the current message
+        const toolCheckContents = [{ role: "user", parts: [{ text: `You are a helpful assistant. Use tools.\n\nUser: ${currentMessage}` }] }];
+        const initialResponse = await getAIResponse(toolCheckContents, { temperature: 0.1 }, true);
 
-    if (toolsEnabled && initialResponse && initialResponse.functionCall) {
-      const { name: functionName, args: functionArgs } = initialResponse.functionCall;
-      console.log(`[CONTROLLER] AI wants to call function "${functionName}"`);
-
-      let functionResult = (functionName === 'getWeather')
-        ? await getWeather(functionArgs.city)
-        : "Unknown function";
-      console.log(`[CONTROLLER] Got function result: "${functionResult}"`);
-
-      const newContents = [
-        { role: "user", parts: [{ text: message }] },
-        { role: "model", parts: [initialResponse] },
-        {
-          role: "tool",
-          parts: [{
-            function_response: { name: functionName, response: { content: functionResult } }
-          }]
+        if (initialResponse && initialResponse.functionCall) {
+          const { name: functionName, args: functionArgs } = initialResponse.functionCall;
+          const functionResult = await getWeather(functionArgs.city);
+          
+          // For the final answer, we provide the full history for context
+          const finalContents = [
+            ...formatHistoryForAI(RUDE_BOT_PROMPT, history),
+            { role: "model", parts: [initialResponse] },
+            { role: "tool", parts: [{ function_response: { name: functionName, response: { content: functionResult } } }] }
+          ];
+          const finalResponse = await getAIResponse(finalContents, generationConfig, false);
+          response = { sender: 'bot', text: finalResponse.text };
+        } else {
+          response = { sender: 'bot', text: initialResponse.text || "I couldn't use the tool." };
         }
-      ];
+        break;
 
-      console.log('[CONTROLLER] Sending result back to AI for final response...');
-      const finalPromptContents = [
-        { role: "user", parts: [{ text: `${RUDE_BOT_PROMPT}\n\nUser: ${message}` }] },
-        ...newContents.slice(1)
-      ];
-      const finalResponse = await getAIResponse(finalPromptContents, generationConfig, false);
-      
-      res.status(200).json({ sender: 'bot', text: finalResponse.text });
+      case 'comparison_json':
+        // Provide the full history for context
+        const comparisonContents = formatHistoryForAI(COMPARISON_PROMPT, history);
+        const comparisonResponse = await getAIResponse(comparisonContents, { temperature: 0.1 });
+        response = { sender: 'bot', text: comparisonResponse.text };
+        break;
 
-    } else {
-      console.log("[CONTROLLER] No function call needed. Returning direct response.");
-      res.status(200).json({ sender: 'bot', text: initialResponse.text || "I don't have a direct answer for that." });
+      case 'reasoning_cot':
+        // Provide the full history for context
+        const cotContents = formatHistoryForAI(COT_PROMPT, history);
+        const cotResponse = await getAIResponse(cotContents, { temperature: 0.1 });
+        response = { sender: 'bot', text: cotResponse.text };
+        break;
+
+      case 'conversational':
+      default:
+        // Provide the full history for context
+        const convoContents = formatHistoryForAI(RUDE_BOT_PROMPT, history);
+        const convoResponse = await getAIResponse(convoContents, generationConfig);
+        response = { sender: 'bot', text: convoResponse.text };
+        break;
     }
+
+    res.status(200).json(response);
 
   } catch (error) {
-    console.log('Error in chat controller:', error);
+    console.error('Error in chat controller:', error);
     res.status(500).json({ error: 'An internal server error occurred.' });
   }
 };

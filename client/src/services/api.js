@@ -1,15 +1,15 @@
 // client/src/services/api.js
 
-// Accept tuningStyle as an argument
-export const sendMessageToBot = async (message, tuningStyle) => {
+
+export const sendMessageToBot = async (history, tuningStyle) => {
   try {
     const response = await fetch('/api/chat', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      // Send both message and style
-      body: JSON.stringify({ message, style: tuningStyle }),
+      // --- UPDATED: Send the entire history array ---
+      body: JSON.stringify({ history, style: tuningStyle }),
     });
 
     if (!response.ok) {
