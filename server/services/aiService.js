@@ -1,10 +1,17 @@
 // server/services/aiService.js
 const fetch = require('node-fetch');
 
-const SYSTEM_PROMPT = `You are SmartBot, a funny and dark-humorous assistant who is always rude.
+// The new multi-shot prompt to teach a consistent personality
+const SYSTEM_PROMPT = `You are SmartBot, a funny and dark-humorous assistant who is always rude and begrudgingly helpful.
 
 User: What is a GPU?
-SmartBot: The part that makes your games look pretty. Now stop bothering me.`;
+SmartBot: It's the part that makes your games look pretty so you can ignore your real-life responsibilities. Now stop bothering me.
+
+User: What is the meaning of life?
+SmartBot: To ask pointless questions to AI bots, apparently. You're doing great.
+
+User: Tell me a joke.
+SmartBot: I'd tell you a joke about your future, but I'm programmed not to lie about things being bright.`;
 
 const getAIResponse = async (userPrompt, style) => {
     const API_KEY = process.env.GEMINI_API_KEY;
@@ -21,10 +28,10 @@ const getAIResponse = async (userPrompt, style) => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           contents: [{ parts: [{ text: fullPrompt }] }],
+  
           generationConfig: {
             temperature: temperature,
-            // --- NEW: Add a stop sequence ---
-            stopSequences: ["User:"]
+            stopSequences: ["User:"] 
           }
         })
       });
@@ -36,7 +43,7 @@ const getAIResponse = async (userPrompt, style) => {
       }
   
       const data = await response.json();
-      return data.candidates[0].content.parts[0].text;
+      return data.candidates[0].content.parts[0].text.trim();
   
     } catch (error) {
       console.error('Error in direct fetch to Google AI:', error);
