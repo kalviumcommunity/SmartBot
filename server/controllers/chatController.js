@@ -1,14 +1,31 @@
-
-const { getAIResponse, SYSTEM_PROMPT: RUDE_BOT_PROMPT } = require('../services/aiService');
+// server/controllers/chatController.js
+const { getAIResponse, RUDE_BOT_PROMPT } = require('../services/aiService');
 const { getWeather } = require('../tools');
 
+const COMPARISON_PROMPT = `You are a comparison bot. Analyze the two items the user wants to compare and provide a JSON object with a "pros" and "cons" list for each.
 
-const TOOL_USE_PROMPT = `You are a sarcastic assistant. Your job is to identify when a user's request requires a real-world tool and to call the appropriate function.`;
+User: Compare React and Vue
+SmartBot: {
+  "React": {
+    "pros": ["Large ecosystem and community", "Backed by Facebook", "Great for large-scale applications"],
+    "cons": ["Steeper learning curve", "Can be overly complex for simple projects"]
+  },
+  "Vue": {
+    "pros": ["Easier to learn", "Excellent documentation", "High performance"],
+    "cons": ["Smaller ecosystem than React", "Less corporate backing"]
+  }
+}`;
 
 const needsTools = (message) => {
   const toolKeywords = ['weather', 'temperature', 'forecast', 'climate', 'how hot', 'how cold'];
   const lowerCaseMessage = message.toLowerCase();
   return toolKeywords.some(keyword => lowerCaseMessage.includes(keyword));
+};
+
+const isComparisonRequest = (message) => {
+  const comparisonKeywords = ['vs', 'versus', 'compare', 'pros and cons', 'advantages of'];
+  const lowerCaseMessage = message.toLowerCase();
+  return comparisonKeywords.some(keyword => lowerCaseMessage.includes(keyword));
 };
 
 const handleChatRequest = async (req, res) => {
@@ -17,26 +34,39 @@ const handleChatRequest = async (req, res) => {
     if (!message) { return res.status(400).json({ error: 'Message is required' }); }
 
     const useTools = needsTools(message);
-    console.log(`[CONTROLLER] Message: "${message}". Needs tools? ${useTools}`);
+    const useComparison = !useTools && isComparisonRequest(message); 
 
     let generationConfig = { stopSequences: ["User:"] };
-    if (style === 'creative') { generationConfig.temperature = 0.9; }
-    else if (style === 'topk') { generationConfig.topK = 40; }
-    else if (style === 'topp') { generationConfig.topP = 0.95; }
-    else { generationConfig.temperature = 0.2; }
-
     let contents;
-    
+    let toolsEnabled = false;
+
+   
     if (useTools) {
-      contents = [{ role: "user", parts: [{ text: `${TOOL_USE_PROMPT}\n\nUser: ${message}` }] }];
-    } else {
+      console.log("[CONTROLLER] Mode: Function Calling");
      
+      contents = [{ role: "user", parts: [{ text: `You are a helpful assistant. Your job is to identify when a user's request requires a real-world tool.\n\nUser: ${message}` }] }];
+      toolsEnabled = true;
+    } else if (useComparison) {
+      console.log("[CONTROLLER] Mode: Structured Output (JSON)");
+   
+      contents = [{ role: "user", parts: [{ text: `${COMPARISON_PROMPT}\n\nUser: ${message}\nSmartBot:` }] }];
+ 
+      generationConfig.temperature = 0.1;
+    } else {
+      console.log("[CONTROLLER] Mode: Conversational");
+
       contents = [{ role: "user", parts: [{ text: `${RUDE_BOT_PROMPT}\n\nUser: ${message}\nSmartBot:` }] }];
+ 
+      if (style === 'creative') { generationConfig.temperature = 0.9; }
+      else if (style === 'topk') { generationConfig.topK = 40; }
+      else if (style === 'topp') { generationConfig.topP = 0.95; }
+      else { generationConfig.temperature = 0.2; }
     }
 
-    const initialResponse = await getAIResponse(contents, generationConfig, useTools);
+    const initialResponse = await getAIResponse(contents, generationConfig, toolsEnabled);
 
-    if (useTools && initialResponse && initialResponse.functionCall) {
+    // This logic for handling the function call result remains the same
+    if (toolsEnabled && initialResponse && initialResponse.functionCall) {
       const { name: functionName, args: functionArgs } = initialResponse.functionCall;
       console.log(`[CONTROLLER] AI wants to call function "${functionName}"`);
 
@@ -45,9 +75,8 @@ const handleChatRequest = async (req, res) => {
         : "Unknown function";
       console.log(`[CONTROLLER] Got function result: "${functionResult}"`);
 
-      
       const newContents = [
-        { role: "user", parts: [{ text: `${RUDE_BOT_PROMPT}\n\nUser: ${message}` }] },
+        { role: "user", parts: [{ text: message }] },
         { role: "model", parts: [initialResponse] },
         {
           role: "tool",
@@ -58,11 +87,17 @@ const handleChatRequest = async (req, res) => {
       ];
 
       console.log('[CONTROLLER] Sending result back to AI for final response...');
-      const finalResponse = await getAIResponse(newContents, generationConfig, false); 
+      // For the final answer, we give it the rude persona
+      const finalPromptContents = [
+        { role: "user", parts: [{ text: `${RUDE_BOT_PROMPT}\n\nUser: ${message}` }] },
+        ...newContents.slice(1) // Add the model and tool parts
+      ];
+      const finalResponse = await getAIResponse(finalPromptContents, generationConfig, false);
       
       res.status(200).json({ sender: 'bot', text: finalResponse.text });
 
     } else {
+      // If no function call was needed, just return the direct response
       console.log("[CONTROLLER] No function call needed. Returning direct response.");
       res.status(200).json({ sender: 'bot', text: initialResponse.text || "I don't have a direct answer for that." });
     }

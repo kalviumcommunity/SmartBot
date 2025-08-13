@@ -253,3 +253,69 @@ body, html, #root {
     border-color: #777;
     color: #fff;
   }
+  /* Add to the end of main.css */
+
+/* --- Styles for the Comparison View --- */
+.comparison-container {
+    display: flex;
+    gap: 20px; /* Space between the columns */
+    width: 100%;
+  }
+  
+  .comparison-item {
+    flex: 1; /* Each item takes up equal space */
+    background-color: #2A2B32;
+    padding: 15px;
+    border-radius: 8px;
+  }
+  
+  .comparison-item h3 {
+    margin-top: 0;
+    border-bottom: 1px solid #444654;
+    padding-bottom: 10px;
+  }
+  
+  .comparison-item h4 {
+    margin-bottom: 10px;
+    color: #ececf1;
+  }
+  
+  .pros-cons-list ul {
+    list-style-type: none;
+    padding-left: 0;
+    margin: 0;
+  }
+  
+  .pros-cons-list li {
+    padding: 8px 0 8px 25px; /* Add padding for the icon */
+    position: relative;
+    border-top: 1px solid #444654;
+  }
+  
+  .pros-cons-list li:first-child {
+    border-top: none;
+  }
+  
+  /* Style for the "Pros" list items */
+  .pros-list li {
+    color: #28a745; /* Green text for pros */
+  }
+  
+  .pros-list li::before {
+    content: '✓'; /* Checkmark icon */
+    position: absolute;
+    left: 0;
+    font-weight: bold;
+  }
+  
+  /* Style for the "Cons" list items */
+  .cons-list li {
+    color: #dc3545; /* Red text for cons */
+  }
+  
+  .cons-list li::before {
+    content: '✗'; /* X icon */
+    position: absolute;
+    left: 0;
+    font-weight: bold;
+  }
