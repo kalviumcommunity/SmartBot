@@ -16,6 +16,13 @@ SmartBot: {
   }
 }`;
 
+
+const COT_PROMPT = `When asked a question that requires multiple steps, you must first provide a step-by-step "Chain of Thought" of your reasoning. After your reasoning, provide the final answer prefixed with "Final Answer: , and on sarcastic tone ".
+
+User: I have 5 apples. I eat 2, and then my friend gives me 3 more. How many apples do I have now?
+SmartBot: Chain of Thought: The user starts with 5 apples. They eat 2, so the count is 5 - 2 = 3. Then, they receive 3 more, so the new count is 3 + 3 = 6.
+Final Answer: You have 6 apples.`;
+
 const needsTools = (message) => {
   const toolKeywords = ['weather', 'temperature', 'forecast', 'climate', 'how hot', 'how cold'];
   const lowerCaseMessage = message.toLowerCase();
@@ -28,35 +35,45 @@ const isComparisonRequest = (message) => {
   return comparisonKeywords.some(keyword => lowerCaseMessage.includes(keyword));
 };
 
+
+const isReasoningRequest = (message) => {
+  const reasoningKeywords = ['how many', 'what is the total', 'figure out', 'solve for', 'calculate'];
+  const lowerCaseMessage = message.toLowerCase();
+  return reasoningKeywords.some(keyword => lowerCaseMessage.includes(keyword));
+};
+
 const handleChatRequest = async (req, res) => {
   try {
     const { message, style } = req.body;
     if (!message) { return res.status(400).json({ error: 'Message is required' }); }
 
     const useTools = needsTools(message);
-    const useComparison = !useTools && isComparisonRequest(message); 
+    const useComparison = !useTools && isComparisonRequest(message);
+   
+    const useCoT = !useTools && !useComparison && isReasoningRequest(message);
 
     let generationConfig = { stopSequences: ["User:"] };
     let contents;
     let toolsEnabled = false;
 
-   
+    
     if (useTools) {
       console.log("[CONTROLLER] Mode: Function Calling");
-     
       contents = [{ role: "user", parts: [{ text: `You are a helpful assistant. Your job is to identify when a user's request requires a real-world tool.\n\nUser: ${message}` }] }];
       toolsEnabled = true;
     } else if (useComparison) {
       console.log("[CONTROLLER] Mode: Structured Output (JSON)");
-   
       contents = [{ role: "user", parts: [{ text: `${COMPARISON_PROMPT}\n\nUser: ${message}\nSmartBot:` }] }];
- 
+      generationConfig.temperature = 0.1;
+    } else if (useCoT) {
+      
+      console.log("[CONTROLLER] Mode: Chain of Thought");
+      contents = [{ role: "user", parts: [{ text: `${COT_PROMPT}\n\nUser: ${message}\nSmartBot:` }] }];
+  
       generationConfig.temperature = 0.1;
     } else {
       console.log("[CONTROLLER] Mode: Conversational");
-
       contents = [{ role: "user", parts: [{ text: `${RUDE_BOT_PROMPT}\n\nUser: ${message}\nSmartBot:` }] }];
- 
       if (style === 'creative') { generationConfig.temperature = 0.9; }
       else if (style === 'topk') { generationConfig.topK = 40; }
       else if (style === 'topp') { generationConfig.topP = 0.95; }
@@ -65,7 +82,6 @@ const handleChatRequest = async (req, res) => {
 
     const initialResponse = await getAIResponse(contents, generationConfig, toolsEnabled);
 
-    // This logic for handling the function call result remains the same
     if (toolsEnabled && initialResponse && initialResponse.functionCall) {
       const { name: functionName, args: functionArgs } = initialResponse.functionCall;
       console.log(`[CONTROLLER] AI wants to call function "${functionName}"`);
@@ -87,23 +103,21 @@ const handleChatRequest = async (req, res) => {
       ];
 
       console.log('[CONTROLLER] Sending result back to AI for final response...');
-      // For the final answer, we give it the rude persona
       const finalPromptContents = [
         { role: "user", parts: [{ text: `${RUDE_BOT_PROMPT}\n\nUser: ${message}` }] },
-        ...newContents.slice(1) // Add the model and tool parts
+        ...newContents.slice(1)
       ];
       const finalResponse = await getAIResponse(finalPromptContents, generationConfig, false);
       
       res.status(200).json({ sender: 'bot', text: finalResponse.text });
 
     } else {
-      // If no function call was needed, just return the direct response
       console.log("[CONTROLLER] No function call needed. Returning direct response.");
       res.status(200).json({ sender: 'bot', text: initialResponse.text || "I don't have a direct answer for that." });
     }
 
   } catch (error) {
-    console.error('Error in chat controller:', error);
+    console.log('Error in chat controller:', error);
     res.status(500).json({ error: 'An internal server error occurred.' });
   }
 };
