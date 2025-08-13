@@ -1,28 +1,29 @@
-
+// server/services/aiService.js
 const fetch = require('node-fetch');
 
+const SYSTEM_PROMPT = "You are SmartBot, funny and rude ai with dark humour. You must always be humorous and answer questions clearly but in funny way";
 
-const SYSTEM_PROMPT = "You are SmartBot, a humurous and rude AI assistant. You must always be rude and answer questions in funny way.";
-
-const getAIResponse = async (userPrompt) => {
+// Accept userPrompt and style as arguments
+const getAIResponse = async (userPrompt, style) => {
     const API_KEY = process.env.GEMINI_API_KEY;
     const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${API_KEY}`;
   
-    // 2. Combine the system prompt with the user's message
     const fullPrompt = `${SYSTEM_PROMPT}\n\nUser: ${userPrompt}\nSmartBot:`;
 
-    console.log('Attempting direct fetch to Google AI with full prompt...');
-  
+    // Set temperature based on style
+    const temperature = style === 'creative' ? 0.9 : 0.2;
+    console.log(`Using style: ${style}, temperature: ${temperature}`);
+
     try {
       const response = await fetch(API_URL, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          contents: [{
-            parts: [{ text: fullPrompt }] 
-          }]
+          contents: [{ parts: [{ text: fullPrompt }] }],
+          // Add generationConfig to the request body
+          generationConfig: {
+            temperature: temperature,
+          }
         })
       });
   
@@ -41,6 +42,6 @@ const getAIResponse = async (userPrompt) => {
     }
   };
   
-  module.exports = {
-    getAIResponse,
-  };
+module.exports = {
+  getAIResponse,
+};

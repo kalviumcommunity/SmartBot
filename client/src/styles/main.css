@@ -224,3 +224,32 @@ body, html, #root {
       opacity: 1;
     }
   }
+
+  /* Add to the end of main.css */
+.chat-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  
+  .tuning-controls button {
+    background-color: transparent;
+    border: 1px solid #555;
+    color: #a9a9b3;
+    padding: 5px 10px;
+    border-radius: 5px;
+    cursor: pointer;
+    margin-left: 10px;
+    transition: all 0.2s ease-in-out;
+  }
+  
+  .tuning-controls button:hover {
+    background-color: #2A2B32;
+    color: #fff;
+  }
+  
+  .tuning-controls button.active {
+    background-color: #40414f;
+    border-color: #777;
+    color: #fff;
+  }
