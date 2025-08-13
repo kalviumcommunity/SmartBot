@@ -59,5 +59,5 @@ const getAIResponse = async (contents, generationConfig = {}, useTools = false) 
 
 module.exports = {
   getAIResponse,
-  SYSTEM_PROMPT, 
+  RUDE_BOT_PROMPT: SYSTEM_PROMPT, 
 };
