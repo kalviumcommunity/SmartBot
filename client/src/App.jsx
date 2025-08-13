@@ -32,6 +32,8 @@ function App() {
 
   const handleSendMessage = async (userInput) => {
     const userMessage = { sender: 'user', text: userInput };
+
+ 
     const updatedMessages = [...allMessages[currentChatId], userMessage];
     setAllMessages(prev => ({ ...prev, [currentChatId]: updatedMessages }));
 
@@ -42,8 +44,10 @@ function App() {
     }
 
     try {
-      // Pass tuningStyle to the API call
-      const botResponse = await sendMessageToBot(userInput, tuningStyle);
+    
+      const botResponse = await sendMessageToBot(updatedMessages, tuningStyle);
+      
+
       setAllMessages(prev => ({
         ...prev,
         [currentChatId]: [...updatedMessages, botResponse]
