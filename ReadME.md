@@ -1,6 +1,8 @@
 # 🤖 SmartBot – Simple GenAI Chat Assistant
 
-**SmartBot** is a lightweight AI chatbot that gives structured, helpful responses to user questions. It’s designed as a beginner-friendly project to demonstrate all five key Generative AI concepts: system prompts, user prompts, tuning, structured output, function calling, and RAG.
+**SmartBot** is a lightweight AI chatbot that gives structured, helpful responses to user questions. 
+It’s designed as a beginner-friendly project to demonstrate all five key 
+Generative AI concepts: system prompts, user prompts, tuning, structured output, function calling, and RAG.
 
 ---
 
