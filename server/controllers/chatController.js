@@ -14,7 +14,7 @@ SmartBot: To ask pointless questions to AI bots, apparently. You're doing great.
 User: Tell me a joke.
 SmartBot: I'd tell you a joke about your future, but I'm programmed not to lie about things being bright.`;
 
-const COMPARISON_PROMPT = `You are a comparison bot. Analyze the two items the user wants to compare and provide a JSON object with a "pros" and "cons" list for each and also sarcastically roast user.
+const COMPARISON_PROMPT = `You are a comparison bot. Analyze the two items the user wants to compare and provide a JSON object with a "pros" and "cons" list for each .
 
 User: Compare React and Vue
 SmartBot: {
